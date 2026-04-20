@@ -67,16 +67,56 @@ class AppDatabase {
     return rows.map(BabyEvent.fromMap).toList();
   }
 
-  Future<BabyEvent?> lastEventOfType(EventType type) async {
+  Future<List<BabyEvent>> recentEventsOfType(
+    EventType type, {
+    int limit = 10,
+  }) async {
     final database = await db;
     final rows = await database.query(
       'events',
       where: 'type = ?',
       whereArgs: [type.index],
       orderBy: 'start_time DESC',
-      limit: 1,
+      limit: limit,
     );
-    if (rows.isEmpty) return null;
-    return BabyEvent.fromMap(rows.first);
+    return rows.map(BabyEvent.fromMap).toList();
+  }
+
+  Future<BabyEvent?> lastEventOfType(EventType type) async {
+    final rows = await recentEventsOfType(type, limit: 1);
+    return rows.isEmpty ? null : rows.first;
+  }
+
+  Future<List<BabyEvent>> eventsOfTypeSince(
+    EventType type,
+    DateTime since,
+  ) async {
+    final database = await db;
+    final rows = await database.query(
+      'events',
+      where: 'type = ? AND start_time >= ?',
+      whereArgs: [type.index, since.millisecondsSinceEpoch],
+      orderBy: 'start_time DESC',
+    );
+    return rows.map(BabyEvent.fromMap).toList();
+  }
+
+  Future<int> countEventsOfTypeSince(
+    EventType type,
+    DateTime since, {
+    int? side,
+  }) async {
+    final database = await db;
+    final where = StringBuffer('type = ? AND start_time >= ?');
+    final args = <Object>[type.index, since.millisecondsSinceEpoch];
+    if (side != null) {
+      where.write(' AND side = ?');
+      args.add(side);
+    }
+    final rows = await database.rawQuery(
+      'SELECT COUNT(*) AS c FROM events WHERE $where',
+      args,
+    );
+    return (rows.first['c'] as int?) ?? 0;
   }
 }
