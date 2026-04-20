@@ -1,6 +1,8 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import 'event.dart';
+
 class AppDatabase {
   AppDatabase._();
   static final AppDatabase instance = AppDatabase._();
@@ -47,5 +49,34 @@ class AppDatabase {
         ''');
       },
     );
+  }
+
+  Future<int> insertEvent(BabyEvent event) async {
+    final database = await db;
+    final map = event.toMap()..remove('id');
+    return database.insert('events', map);
+  }
+
+  Future<List<BabyEvent>> recentEvents({int limit = 10}) async {
+    final database = await db;
+    final rows = await database.query(
+      'events',
+      orderBy: 'start_time DESC',
+      limit: limit,
+    );
+    return rows.map(BabyEvent.fromMap).toList();
+  }
+
+  Future<BabyEvent?> lastEventOfType(EventType type) async {
+    final database = await db;
+    final rows = await database.query(
+      'events',
+      where: 'type = ?',
+      whereArgs: [type.index],
+      orderBy: 'start_time DESC',
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    return BabyEvent.fromMap(rows.first);
   }
 }
